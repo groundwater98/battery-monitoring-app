@@ -1,0 +1,36 @@
+# 로그 저장 경로
+$logPath = "C:\Logs\SystemInfoLog.csv"
+
+# CPU utilization percentage
+$cpuUtilization = (Get-Counter '\Processor(_Total)\% Processor Time').CounterSamples[0].CookedValue
+
+# GPU Utilization
+$nvidiaSmiOutput = & nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits
+$gpuUtilization = [float]$nvidiaSmiOutput
+
+# 배터리 잔량 %
+$battery = Get-CimInstance -Namespace root\CIMv2 -ClassName Win32_Battery
+$currentBatteryPercentage = $battery.EstimatedChargeRemaining
+
+# 충전 여부 (1: 방전 중, 2: 충전 중, 3: 충전 완료)
+$batteryStatus = $battery.BatteryStatus
+
+# 로그에 현재 시간을 추가
+$currentTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+# 객체로 데이터 구성
+$logObject = [PSCustomObject]@{
+    "Time"            = $currentTime
+    "CPU utilization percentage"   = [math]::Round($cpuUtilization, 2)
+    "GPU Utilization" = [math]::Round($gpuUtilization, 2)
+    "Current battery percentage"= $currentBatteryPercentage
+    "Battery_Status"       = $batteryStatus
+}
+
+# CSV 파일 저장
+# 파일이 존재하지 않으면 헤더와 함께 저장, 존재하면 데이터만 추가
+if (-not (Test-Path -Path $logPath)) {
+    $logObject | Export-Csv -Path $logPath -NoTypeInformation -Encoding UTF8
+} else {
+    $logObject | Export-Csv -Path $logPath -NoTypeInformation -Append -Encoding UTF8
+}
